@@ -695,7 +695,7 @@ function FeedScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your Videos</Text>
+        <Text style={styles.feedHeaderTitle}>Your Videos</Text>
         <TouchableOpacity
           onPress={() => navigation.navigate('Camera')}
           style={styles.cameraButton}
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   // Feed Screen Styles
-  headerTitle: {
+  feedHeaderTitle: {
     color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
