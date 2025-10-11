@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+  
+  <title>MyApp</title>
+  <style>
+    html, body, #root {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAtwMjg2mrZmAjs435y2bZ45Ea2xpljhPU",
+      authDomain: "reactnativevideobereal.firebaseapp.com",
+      projectId: "reactnativevideobereal",
+      storageBucket: "reactnativevideobereal.firebasestorage.app",
+      messagingSenderId: "527610019239",
+      appId: "1:527610019239:web:4b52e19ec38928db550a82",
+      measurementId: "G-QWH37JCZ45"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    
+    // Make Firebase available globally
+    window.firebase = firebase;
+    
+    console.log('✅ Firebase initialized for web');
+    
+    // Note: Firebase compat is loaded here for backward compatibility, but the app
+    // now uses the modular SDK from firebase.js for better App Check + phone auth integration
+    console.log('ℹ️ Firebase compat loaded - App is using modular SDK with App Check + phone auth');
+    
+    /* DISABLED - CONFLICTS WITH PHONE AUTH RECAPTCHA
+    // Initialize App Check with reCAPTCHA v3
+    // IMPORTANT: Replace with your actual reCAPTCHA v3 Site Key from Firebase Console
+    const RECAPTCHA_V3_SITE_KEY = '6LeYLOUrAAAAAPjV3UfIdANLeRy6zs5h-SVkBKOd'; // Your reCAPTCHA v3 site key
+    
+    if (firebase.appCheck && RECAPTCHA_V3_SITE_KEY !== '6LdYOUR-SITE-KEY-HERE') {
+      try {
+        const appCheck = firebase.appCheck();
+        appCheck.activate(RECAPTCHA_V3_SITE_KEY, true); // true = enable token auto-refresh
+        console.log('🛡️ Firebase App Check activated for web (reCAPTCHA v3 - invisible)');
+      } catch (error) {
+        console.warn('⚠️ App Check initialization failed:', error.message);
+      }
+    } else if (RECAPTCHA_V3_SITE_KEY === '6LdYOUR-SITE-KEY-HERE') {
+      console.warn('⚠️ App Check not activated - please add your reCAPTCHA v3 site key');
+      console.warn('📖 See APP_CHECK_QUICK_START.md for instructions');
+    }
+    */
+  </script>
+</body>
+</html>
