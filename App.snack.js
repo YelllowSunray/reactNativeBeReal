@@ -28,7 +28,7 @@ import CompleteProfileScreen from './screens/CompleteProfileScreen';
 import FriendsScreen from './screens/FriendsScreen';
 import Webcam from 'react-webcam';
 import { storage, db } from './firebase';
-import { collection, addDoc, query, where, orderBy, limit, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, query, where, orderBy, limit, getDocs, deleteDoc, doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 
 const { width, height } = Dimensions.get('window');
@@ -1206,6 +1206,7 @@ function ForYouFeedScreen({ navigation }) {
             username: data.username || 'anonymous',
             fullName: data.fullName || 'Anonymous User',
             likes: data.likes || 0,
+            likedBy: data.likedBy || [],
             comments: data.comments || 0,
             views: data.views || 0
           });
@@ -1240,6 +1241,64 @@ function ForYouFeedScreen({ navigation }) {
       
       setVideos([]);
       setLoading(false);
+    }
+  };
+
+  const handleLike = async (videoId) => {
+    if (!user) {
+      Alert.alert('Login Required', 'Please login to like videos');
+      return;
+    }
+
+    try {
+      console.log('❤️ Toggling like for video:', videoId);
+      const videoRef = doc(db, 'videos', videoId);
+      const videoDoc = await getDoc(videoRef);
+      
+      if (!videoDoc.exists()) {
+        console.error('Video not found');
+        return;
+      }
+
+      const videoData = videoDoc.data();
+      const likedBy = videoData.likedBy || [];
+      const isLiked = likedBy.includes(user.uid);
+
+      if (isLiked) {
+        // Unlike: remove user from likedBy array and decrease count
+        console.log('👎 Unliking video');
+        await updateDoc(videoRef, {
+          likedBy: arrayRemove(user.uid),
+          likes: Math.max(0, (videoData.likes || 0) - 1)
+        });
+      } else {
+        // Like: add user to likedBy array and increase count
+        console.log('👍 Liking video');
+        await updateDoc(videoRef, {
+          likedBy: arrayUnion(user.uid),
+          likes: (videoData.likes || 0) + 1
+        });
+      }
+
+      // Update local state immediately for smooth UI
+      setVideos(prevVideos =>
+        prevVideos.map(video =>
+          video.id === videoId
+            ? {
+                ...video,
+                likes: isLiked ? Math.max(0, video.likes - 1) : video.likes + 1,
+                likedBy: isLiked
+                  ? video.likedBy.filter(id => id !== user.uid)
+                  : [...video.likedBy, user.uid]
+              }
+            : video
+        )
+      );
+
+      console.log('✅ Like toggled successfully');
+    } catch (error) {
+      console.error('❌ Error toggling like:', error);
+      Alert.alert('Error', 'Failed to update like. Please try again.');
     }
   };
 
@@ -1296,19 +1355,19 @@ function ForYouFeedScreen({ navigation }) {
           
           <View style={styles.tiktokOverlay}>
             <View style={styles.tiktokSidebar}>
-              <TouchableOpacity style={styles.tiktokIconButton}>
-                <Text style={styles.tiktokIconWhite}>♡</Text>
+              <TouchableOpacity 
+                style={styles.tiktokIconButton}
+                onPress={() => handleLike(item.id)}
+              >
+                <Text style={item.likedBy?.includes(user?.uid) ? styles.tiktokIconRed : styles.tiktokIconWhite}>
+                  {item.likedBy?.includes(user?.uid) ? '♥' : '♡'}
+                </Text>
                 <Text style={styles.tiktokIconTextRed}>{item.likes || 0}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.tiktokIconButton}>
                 <Text style={styles.tiktokIcon}>💬</Text>
                 <Text style={styles.tiktokIconText}>{item.comments || 0}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.tiktokIconButton}>
-                <Text style={styles.tiktokIcon}>🔗</Text>
-                <Text style={styles.tiktokIconText}>Share</Text>
               </TouchableOpacity>
             </View>
 
@@ -1947,11 +2006,6 @@ function FriendsOnlyFeedScreen({ navigation }) {
               <TouchableOpacity style={styles.tiktokIconButton}>
                 <Text style={styles.tiktokIcon}>💬</Text>
                 <Text style={styles.tiktokIconText}>{item.comments || 0}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.tiktokIconButton}>
-                <Text style={styles.tiktokIcon}>🔗</Text>
-                <Text style={styles.tiktokIconText}>Share</Text>
               </TouchableOpacity>
             </View>
 
@@ -3183,10 +3237,25 @@ const styles = StyleSheet.create({
     fontSize: 32,
     marginBottom: 5,
   },
+  tiktokIconWhite: {
+    fontSize: 40,
+    marginBottom: 5,
+    color: '#fff',
+  },
+  tiktokIconRed: {
+    fontSize: 40,
+    marginBottom: 5,
+    color: '#ff4444',
+  },
   tiktokIconText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  tiktokIconTextRed: {
+    color: '#ff4444',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   deleteButton: {
     backgroundColor: 'rgba(255,68,68,0.2)',
