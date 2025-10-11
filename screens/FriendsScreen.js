@@ -34,7 +34,7 @@ export default function FriendsScreen({ navigation }) {
     loadFriendRequests,
     loadFriends
   } = useFriends();
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
 
   // Refresh data when screen opens
   useEffect(() => {
@@ -99,8 +99,19 @@ export default function FriendsScreen({ navigation }) {
       Alert.alert('Success! 🎉', 'You are now friends!');
       // Force immediate refresh after accepting
       console.log('🔄 Forcing immediate refresh after accept');
+      
+      // CRITICAL: Refresh AuthContext user first to update friends array
+      if (refreshUserData) {
+        console.log('🔄 Step 1: Refreshing AuthContext user data...');
+        await refreshUserData();
+      }
+      
+      // Then refresh friends lists (which will use the updated user.friends array)
+      console.log('🔄 Step 2: Refreshing friends and requests...');
       await loadFriends();
       await loadFriendRequests();
+      
+      console.log('✅ All data refreshed successfully!');
     } else {
       Alert.alert('Error', result.error);
     }
@@ -165,26 +176,14 @@ export default function FriendsScreen({ navigation }) {
     if (!phone) return 'Unknown';
     
     // Format like: +31 6 1234 5678
-    // Try to match with 1-2 digit country code first (most common, like +31, +1, +44)
-    let match = phone.match(/^(\+\d{1,2})(\d{1})(\d{4})(\d+)/);
+    // Match country code and number parts
+    const match = phone.match(/^(\+\d{1,3})(\d{1})(\d{4})(\d+)/);
     if (match) {
       return `${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
     }
     
-    // Try to match with 3-digit country code (less common, like +234)
-    match = phone.match(/^(\+\d{3})(\d{1})(\d{4})(\d+)/);
-    if (match) {
-      return `${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
-    }
-    
-    // Fallback for shorter numbers: try 1-2 digit country code
-    match = phone.match(/^(\+\d{1,2})(.+)/);
-    if (match) {
-      return `${match[1]} ${match[2]}`;
-    }
-    
-    // Last resort: return as-is
-    return phone;
+    // Fallback: just add space after country code
+    return phone.replace(/^(\+\d{1,3})(\d)/, '$1 $2');
   };
 
   const renderFriendItem = ({ item }) => (

@@ -33,11 +33,18 @@ export const FriendsProvider = ({ children }) => {
 
   // Load friends and requests when user changes
   useEffect(() => {
-    if (user) {
+    if (user?.uid) {
+      console.log('👤 User logged in, loading friends for:', user.uid);
+      console.log('   User has friends array:', user.friends?.length || 0, 'friends');
       loadFriends(true); // Show loading on initial load
       loadFriendRequests();
+    } else {
+      console.log('⚠️ No user logged in, clearing friends');
+      setFriends([]);
+      setSentRequests([]);
+      setReceivedRequests([]);
     }
-  }, [user]);
+  }, [user?.uid]);
 
   // Auto-refresh friends and requests every 5 seconds to catch changes from other devices
   useEffect(() => {
@@ -306,11 +313,21 @@ export const FriendsProvider = ({ children }) => {
       });
       console.log('   ✅ Added to my friends list');
       
+      // Verify the write worked
+      const myDocAfter = await getDoc(doc(db, 'users', user.uid));
+      const myFriendsAfter = myDocAfter.data()?.friends || [];
+      console.log('   🔍 VERIFY: My friends array after update:', myFriendsAfter);
+      
       console.log(`   📝 Adding me (${user.uid}) to ${fromUserId}'s friends list...`);
       await updateDoc(doc(db, 'users', fromUserId), {
         friends: arrayUnion(user.uid)
       });
       console.log('   ✅ Added to their friends list');
+      
+      // Verify the write worked
+      const theirDocAfter = await getDoc(doc(db, 'users', fromUserId));
+      const theirFriendsAfter = theirDocAfter.data()?.friends || [];
+      console.log('   🔍 VERIFY: Their friends array after update:', theirFriendsAfter);
       
       console.log('🎉 Users are now friends!');
       

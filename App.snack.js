@@ -1374,9 +1374,40 @@ function ForYouFeedScreen({ navigation }) {
       }));
       
       console.log(`✅ Loaded ${commentsData.length} comments`);
+      if (commentsData.length > 0) {
+        console.log('📋 Sample comment:', {
+          username: commentsData[0].username,
+          text: commentsData[0].text?.substring(0, 50),
+          createdAt: commentsData[0].createdAt
+        });
+      }
       setComments(commentsData);
     } catch (error) {
       console.error('❌ Error loading comments:', error);
+      console.error('❌ Error code:', error.code);
+      console.error('❌ Error message:', error.message);
+      // If orderBy fails (needs index), try without ordering
+      if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+        console.log('⚠️ Trying to load comments without orderBy (index not created)...');
+        try {
+          const simpleQuery = query(
+            collection(db, 'comments'),
+            where('videoId', '==', videoId)
+          );
+          const snapshot = await getDocs(simpleQuery);
+          const data = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          console.log(`✅ Loaded ${data.length} comments (unordered)`);
+          setComments(data);
+        } catch (err2) {
+          console.error('❌ Failed to load comments even without orderBy:', err2);
+          setComments([]);
+        }
+      } else {
+        setComments([]);
+      }
     } finally {
       setLoadingComments(false);
     }
@@ -1630,16 +1661,17 @@ function ForYouFeedScreen({ navigation }) {
         transparent={true}
         onRequestClose={closeComments}
       >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.commentsModalContainer}
-        >
+        <View style={styles.commentsModalContainer}>
           <TouchableOpacity 
             style={styles.commentsModalOverlay}
             activeOpacity={1}
             onPress={closeComments}
+          />
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.commentsModalKeyboardView}
           >
-            <View style={styles.commentsModalContent} onStartShouldSetResponder={() => true}>
+            <View style={styles.commentsModalContent}>
               {/* Header */}
               <View style={styles.commentsHeader}>
                 <Text style={styles.commentsTitle}>
@@ -1712,8 +1744,8 @@ function ForYouFeedScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
             </View>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   );
@@ -2418,7 +2450,7 @@ function ProfileScreen({ navigation }) {
         return;
       }
 
-      // Count videos from Firestore for the current user
+      // Count videos and likes from Firestore for the current user
       const videosQuery = query(
         collection(db, 'videos'),
         where('userId', '==', user.uid)
@@ -2427,8 +2459,22 @@ function ProfileScreen({ navigation }) {
       const videosSnapshot = await getDocs(videosQuery);
       const videoCount = videosSnapshot.docs.length;
       
-      console.log(`📊 Profile: User has ${videoCount} videos`);
-      setStats({ videos: videoCount, likes: 0, followers: 0 });
+      // Calculate total likes across all videos
+      let totalLikes = 0;
+      videosSnapshot.docs.forEach(doc => {
+        const videoData = doc.data();
+        // Use likedBy array length if available, otherwise use likes field
+        const videoLikes = videoData.likedBy?.length || videoData.likes || 0;
+        totalLikes += videoLikes;
+      });
+      
+      // Get friends count (followers) from user document
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userData = userDoc.data();
+      const friendsCount = userData?.friends?.length || 0;
+      
+      console.log(`📊 Profile: User has ${videoCount} videos, ${totalLikes} total likes, ${friendsCount} friends`);
+      setStats({ videos: videoCount, likes: totalLikes, followers: friendsCount });
     } catch (error) {
       console.error('❌ Error loading stats:', error);
       setStats({ videos: 0, likes: 0, followers: 0 });
@@ -3704,9 +3750,16 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   commentsModalOverlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  commentsModalKeyboardView: {
     justifyContent: 'flex-end',
+    flex: 1,
   },
   commentsModalContent: {
     backgroundColor: '#1a1a1a',

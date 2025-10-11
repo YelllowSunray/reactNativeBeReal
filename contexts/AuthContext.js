@@ -51,9 +51,20 @@ export const AuthProvider = ({ children }) => {
                     username: userData.username,
                     fullName: userData.fullName,
                     profileComplete: userData.profileComplete,
-                    hasFriends: userData.friends?.length || 0
+                    hasFriends: userData.friends?.length || 0,
+                    friendIds: userData.friends || []
                   });
+                  
+                  // Validate that we have all required profile data
+                  if (!userData.fullName || !userData.username) {
+                    console.warn('⚠️ User document exists but missing profile data!');
+                    console.warn('   fullName:', userData.fullName || 'MISSING');
+                    console.warn('   username:', userData.username || 'MISSING');
+                  }
+                  
+                  console.log('🔄 Setting user in AuthContext with merged data...');
                   setUser({ ...user, ...userData });
+                  console.log('✅ User set in AuthContext');
                 } else {
                   console.log('📝 User document does not exist, creating new one...');
                   await setDoc(doc(db, 'users', user.uid), {
@@ -66,9 +77,19 @@ export const AuthProvider = ({ children }) => {
                   setUser({ ...user, friends: [], profileComplete: false });
                 }
               } catch (firestoreError) {
-                console.warn('⚠️ Firestore permission error (rules need to be updated):', firestoreError.message);
-                console.warn('📖 Update Firestore rules in Firebase Console to allow authenticated users');
-                // Set user without Firestore data - auth still works!
+                console.error('❌ CRITICAL: Firestore error during login:', firestoreError);
+                console.error('❌ Error code:', firestoreError.code);
+                console.error('❌ Error message:', firestoreError.message);
+                console.warn('⚠️ This will trigger profile completion screen!');
+                
+                // Check if it's a permission error
+                if (firestoreError.code === 'permission-denied') {
+                  console.error('❌ PERMISSION DENIED: Update Firestore rules!');
+                  console.error('   Go to Firebase Console → Firestore → Rules');
+                  console.error('   Use the rules from FIRESTORE_RULES_CORRECT.txt');
+                }
+                
+                // Set user without Firestore data - this triggers profile completion
                 setUser({ ...user, friends: [], profileComplete: false });
               }
             } else {
@@ -202,11 +223,19 @@ export const AuthProvider = ({ children }) => {
       const credential = PhoneAuthProvider.credential(verificationId, code);
       const result = await signInWithCredential(auth, credential);
       
-      await setDoc(doc(db, 'users', result.user.uid), {
-        phoneNumber: result.user.phoneNumber,
-        createdAt: new Date(),
-        friends: []
-      }, { merge: true });
+      // Only set phoneNumber if user doc doesn't exist (don't overwrite friends array!)
+      const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+      if (!userDoc.exists()) {
+        console.log('📝 Creating user document for first-time login');
+        await setDoc(doc(db, 'users', result.user.uid), {
+          phoneNumber: result.user.phoneNumber,
+          createdAt: new Date(),
+          friends: [],
+          profileComplete: false
+        });
+      } else {
+        console.log('✅ User document already exists, not overwriting');
+      }
 
       console.log('User verified successfully via Firebase');
       return { success: true };
@@ -259,6 +288,35 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshUserData = async () => {
+    try {
+      if (!user || !user.uid) {
+        console.warn('⚠️ No user to refresh');
+        return;
+      }
+      
+      console.log('🔄 Refreshing user data from Firestore...');
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        console.log('✅ User data refreshed from Firestore:', {
+          fullName: userData.fullName,
+          username: userData.username,
+          friends: userData.friends?.length || 0,
+          profileComplete: userData.profileComplete
+        });
+        
+        // Merge Firestore data with current user object
+        setUser({ ...user, ...userData });
+      } else {
+        console.warn('⚠️ User document does not exist in Firestore during refresh!');
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing user data:', error);
+    }
+  };
+
   const logout = async () => {
     try {
       if (firebaseAvailable) {
@@ -279,6 +337,7 @@ export const AuthProvider = ({ children }) => {
     sendVerificationCode,
     verifyCode,
     updateUserProfile,
+    refreshUserData,
     logout
   };
 
