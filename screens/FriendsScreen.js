@@ -43,10 +43,27 @@ export default function FriendsScreen({ navigation }) {
     loadFriendRequests();
   }, []);
 
+  // Refresh data when screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      console.log('👀 FriendsScreen focused - refreshing data');
+      loadFriends();
+      loadFriendRequests();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   const handleSendRequest = async () => {
-    const fullNumber = countryCode + phoneNumber.replace(/\D/g, '');
+    // Clean the phone number (remove spaces, dashes, etc)
+    const cleanedPhone = phoneNumber.replace(/\D/g, '');
     
-    if (phoneNumber.replace(/\D/g, '').length < 6) {
+    // Remove leading 0 if present (e.g., "06123455" becomes "6123455")
+    const phoneWithoutLeadingZero = cleanedPhone.replace(/^0+/, '');
+    
+    // Combine country code with phone number (no space for Firebase)
+    const fullNumber = countryCode + phoneWithoutLeadingZero;
+    
+    if (phoneWithoutLeadingZero.length < 6) {
       Alert.alert('Invalid Phone Number', 'Please enter a valid phone number');
       return;
     }
@@ -75,10 +92,15 @@ export default function FriendsScreen({ navigation }) {
   };
 
   const handleAcceptRequest = async (requestId, fromUserId) => {
+    console.log('👍 Accepting friend request from:', fromUserId);
     const result = await acceptFriendRequest(requestId, fromUserId);
     
     if (result.success) {
       Alert.alert('Success! 🎉', 'You are now friends!');
+      // Force immediate refresh after accepting
+      console.log('🔄 Forcing immediate refresh after accept');
+      await loadFriends();
+      await loadFriendRequests();
     } else {
       Alert.alert('Error', result.error);
     }
@@ -141,7 +163,16 @@ export default function FriendsScreen({ navigation }) {
 
   const formatPhoneDisplay = (phone) => {
     if (!phone) return 'Unknown';
-    return phone.replace(/(\+\d{1,3})(\d{3})(\d{3})(\d+)/, '$1 ($2) $3-$4');
+    
+    // Format like: +31 6 1234 5678
+    // Match country code and number parts
+    const match = phone.match(/^(\+\d{1,3})(\d{1})(\d{4})(\d+)/);
+    if (match) {
+      return `${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
+    }
+    
+    // Fallback: just add space after country code
+    return phone.replace(/^(\+\d{1,3})(\d)/, '$1 $2');
   };
 
   const renderFriendItem = ({ item }) => (

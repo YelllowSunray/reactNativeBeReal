@@ -79,9 +79,26 @@ function BottomTabNavigator() {
   const [currentScreen, setCurrentScreen] = useState('main'); // 'main', 'camera', 'preview', 'friendsManage'
   const [previewData, setPreviewData] = useState(null);
   const { receivedRequests } = useFriends();
+  const focusListenersRef = useRef(new Map());
 
-  // Create a fake navigation object for screens
-  const navigation = {
+  // Trigger focus events when screen or tab changes
+  useEffect(() => {
+    const screenName = currentScreen === 'main' ? activeTab : currentScreen;
+    console.log('📢 Screen changed to:', screenName);
+    
+    // Call all focus listeners for this screen
+    const listeners = focusListenersRef.current.get(screenName) || [];
+    listeners.forEach(callback => {
+      try {
+        callback();
+      } catch (error) {
+        console.error('Error in focus listener:', error);
+      }
+    });
+  }, [currentScreen, activeTab]);
+
+  // Create navigation object factory for screens
+  const createNavigation = (screenName) => ({
     navigate: (screen, params) => {
       console.log('🚀 Navigation.navigate called with screen:', screen, 'params:', params);
       if (screen === 'Camera') {
@@ -102,26 +119,43 @@ function BottomTabNavigator() {
         else if (screen === 'YourVideos') setActiveTab('yourVideos');
         else if (screen === 'Profile') setActiveTab('profile');
       }
-      console.log('✅ Navigation complete. Current screen:', currentScreen);
     },
     goBack: () => {
       console.log('⬅️ Go back from:', currentScreen);
       setCurrentScreen('main');
     },
     addListener: (event, callback) => {
-      // Mock listener for focus events
-      return () => {}; // Return unsubscribe function
+      if (event !== 'focus') return () => {};
+      
+      console.log(`📝 Registering focus listener for screen: ${screenName}`);
+      
+      // Add listener for this specific screen
+      if (!focusListenersRef.current.has(screenName)) {
+        focusListenersRef.current.set(screenName, []);
+      }
+      focusListenersRef.current.get(screenName).push(callback);
+      
+      // Return unsubscribe function
+      return () => {
+        const listeners = focusListenersRef.current.get(screenName);
+        if (listeners) {
+          const index = listeners.indexOf(callback);
+          if (index > -1) {
+            listeners.splice(index, 1);
+          }
+        }
+      };
     }
-  };
+  });
 
   return (
     <View style={styles.mainContainer}>
       {/* Main content area */}
       <View style={styles.contentArea}>
-        {currentScreen === 'main' && <MainTabs activeTab={activeTab} setActiveTab={setActiveTab} navigation={navigation} />}
-        {currentScreen === 'camera' && <CameraScreen navigation={navigation} />}
-        {currentScreen === 'preview' && previewData && <PreviewScreen navigation={navigation} route={{ params: previewData }} />}
-        {currentScreen === 'friendsManage' && <FriendsScreen navigation={navigation} />}
+        {currentScreen === 'main' && <MainTabs activeTab={activeTab} setActiveTab={setActiveTab} createNavigation={createNavigation} />}
+        {currentScreen === 'camera' && <CameraScreen navigation={createNavigation('camera')} />}
+        {currentScreen === 'preview' && previewData && <PreviewScreen navigation={createNavigation('preview')} route={{ params: previewData }} />}
+        {currentScreen === 'friendsManage' && <FriendsScreen navigation={createNavigation('friendsManage')} />}
       </View>
 
       {/* Always-visible bottom navigation */}
@@ -189,19 +223,19 @@ function BottomTabNavigator() {
 }
 
 // Main Tabs with Bottom Navigation
-function MainTabs({ activeTab, setActiveTab, navigation }) {
+function MainTabs({ activeTab, setActiveTab, createNavigation }) {
   const renderActiveScreen = () => {
     switch (activeTab) {
       case 'forYou':
-        return <ForYouFeedScreen navigation={navigation} />;
+        return <ForYouFeedScreen navigation={createNavigation('forYou')} />;
       case 'friends':
-        return <FriendsScreen navigation={navigation} />;
+        return <FriendsScreen navigation={createNavigation('friends')} />;
       case 'yourVideos':
-        return <YourVideosFeedScreen navigation={navigation} />;
+        return <YourVideosFeedScreen navigation={createNavigation('yourVideos')} />;
       case 'profile':
-        return <ProfileScreen navigation={navigation} />;
+        return <ProfileScreen navigation={createNavigation('profile')} />;
       default:
-        return <ForYouFeedScreen navigation={navigation} />;
+        return <ForYouFeedScreen navigation={createNavigation('forYou')} />;
     }
   };
 
@@ -2098,12 +2132,16 @@ function ProfileScreen({ navigation }) {
   // Format phone number for display
   const formatPhoneNumber = (phone) => {
     if (!phone) return 'No phone number';
+    
     // Format like: +31 6 1234 5678
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length > 10) {
-      return phone.replace(/(\+\d{1,3})(\d{1,3})(\d{4})(\d{4})/, '$1 $2 $3 $4');
+    // Match country code and number parts
+    const match = phone.match(/^(\+\d{1,3})(\d{1})(\d{4})(\d+)/);
+    if (match) {
+      return `${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
     }
-    return phone;
+    
+    // Fallback: just add space after country code
+    return phone.replace(/^(\+\d{1,3})(\d)/, '$1 $2');
   };
 
   const handleEditProfile = () => {
