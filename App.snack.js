@@ -316,10 +316,22 @@ function CameraScreen({ navigation }) {
 
   const getWebcamDevices = async () => {
     try {
-      console.log('🎥 Requesting webcam devices...');
+      console.log('🎥 Requesting camera permission...');
+      
+      // First, request camera permission by calling getUserMedia
+      // This is required before enumerateDevices will return actual device labels
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: true 
+      });
+      
+      console.log('✅ Camera permission granted, stream obtained');
+      
+      // Now enumerate devices - they will have proper labels
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(device => device.kind === 'videoinput');
       console.log('📹 Found video devices:', videoDevices.length);
+      
       setWebcamDevices(videoDevices);
       if (videoDevices.length > 0) {
         console.log('✅ Setting device:', videoDevices[0].label || videoDevices[0].deviceId);
@@ -327,9 +339,19 @@ function CameraScreen({ navigation }) {
       } else {
         console.warn('⚠️ No video devices found');
       }
+      
+      // Stop the temporary stream - Webcam component will create its own
+      stream.getTracks().forEach(track => track.stop());
+      console.log('🛑 Temporary stream stopped');
+      
     } catch (error) {
-      console.error('❌ Error getting webcam devices:', error);
-      Alert.alert('Camera Error', 'Could not access camera devices. Please check browser permissions.');
+      console.error('❌ Error getting webcam access:', error);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        Alert.alert('Camera Permission Denied', 'Please allow camera access in your browser settings and refresh the page.');
+      } else {
+        Alert.alert('Camera Error', 'Could not access camera. Please check browser permissions.');
+      }
+      setHasPermission(false);
     }
   };
 
@@ -512,7 +534,7 @@ function CameraScreen({ navigation }) {
 
   // Web camera mode
   if (hasPermission === 'web-demo') {
-    console.log('Rendering web camera mode');
+    console.log('Rendering web camera mode, selectedDeviceId:', selectedDeviceId);
     return (
       <SafeAreaView style={styles.container}>
         {/* Back button - top left */}
@@ -526,16 +548,29 @@ function CameraScreen({ navigation }) {
         <View style={styles.cameraContainer}>
           {/* Web camera view */}
           <View style={styles.webCameraContainer}>
-            {selectedDeviceId && (
+            {!selectedDeviceId ? (
+              <View style={styles.cameraLoading}>
+                <ActivityIndicator size="large" color="#fff" />
+                <Text style={styles.cameraLoadingText}>Initializing camera...</Text>
+              </View>
+            ) : (
               <Webcam
                 ref={webcamRef}
                 audio={true}
                 videoConstraints={{
                   deviceId: selectedDeviceId,
                   width: { ideal: 1280 },
-                  height: { ideal: 720 }
+                  height: { ideal: 720 },
+                  facingMode: 'user'
                 }}
                 style={styles.webCamera}
+                onUserMedia={(stream) => {
+                  console.log('📹 Camera stream active:', stream);
+                }}
+                onUserMediaError={(error) => {
+                  console.error('❌ Camera error:', error);
+                  Alert.alert('Camera Error', 'Failed to access camera. Please check permissions.');
+                }}
               />
             )}
             
@@ -552,6 +587,7 @@ function CameraScreen({ navigation }) {
           <TouchableOpacity
             style={[styles.recordButtonCenter, isRecording && styles.recordingButton]}
             onPress={isRecording ? stopRecording : startRecording}
+            disabled={!selectedDeviceId}
           >
             <Text style={styles.recordButtonText}>
               {isRecording ? 'Stop' : 'Record'}
@@ -1075,6 +1111,12 @@ function ForYouFeedScreen({ navigation }) {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showComments, setShowComments] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [postingComment, setPostingComment] = useState(false);
   const { user } = useAuth();
   const { friends } = useFriends();
   const videoRefs = useRef({});
@@ -1302,6 +1344,102 @@ function ForYouFeedScreen({ navigation }) {
     }
   };
 
+  const openComments = async (video) => {
+    setSelectedVideo(video);
+    setShowComments(true);
+    await loadComments(video.id);
+  };
+
+  const closeComments = () => {
+    setShowComments(false);
+    setSelectedVideo(null);
+    setComments([]);
+    setCommentText('');
+  };
+
+  const loadComments = async (videoId) => {
+    setLoadingComments(true);
+    try {
+      console.log('💬 Loading comments for video:', videoId);
+      const commentsQuery = query(
+        collection(db, 'comments'),
+        where('videoId', '==', videoId),
+        orderBy('createdAt', 'asc')
+      );
+      
+      const commentsSnapshot = await getDocs(commentsQuery);
+      const commentsData = commentsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      console.log(`✅ Loaded ${commentsData.length} comments`);
+      setComments(commentsData);
+    } catch (error) {
+      console.error('❌ Error loading comments:', error);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const postComment = async () => {
+    if (!commentText.trim()) {
+      Alert.alert('Empty Comment', 'Please write something before posting');
+      return;
+    }
+
+    if (!user) {
+      Alert.alert('Login Required', 'Please login to comment');
+      return;
+    }
+
+    setPostingComment(true);
+    try {
+      console.log('💬 Posting comment...');
+      
+      // Add comment to Firestore
+      const commentData = {
+        videoId: selectedVideo.id,
+        userId: user.uid,
+        username: user.username || 'anonymous',
+        fullName: user.fullName || 'Anonymous User',
+        text: commentText.trim(),
+        createdAt: new Date()
+      };
+      
+      await addDoc(collection(db, 'comments'), commentData);
+      
+      // Update comment count on video
+      const videoRef = doc(db, 'videos', selectedVideo.id);
+      const videoDoc = await getDoc(videoRef);
+      if (videoDoc.exists()) {
+        await updateDoc(videoRef, {
+          comments: (videoDoc.data().comments || 0) + 1
+        });
+        
+        // Update local state
+        setVideos(prevVideos =>
+          prevVideos.map(video =>
+            video.id === selectedVideo.id
+              ? { ...video, comments: (video.comments || 0) + 1 }
+              : video
+          )
+        );
+      }
+      
+      // Reload comments
+      await loadComments(selectedVideo.id);
+      setCommentText('');
+      
+      console.log('✅ Comment posted successfully');
+    } catch (error) {
+      console.error('❌ Error posting comment:', error);
+      Alert.alert('Error', 'Failed to post comment. Please try again.');
+    } finally {
+      setPostingComment(false);
+    }
+  };
+
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems.length > 0) {
       const visibleIndex = viewableItems[0].index;
@@ -1365,7 +1503,10 @@ function ForYouFeedScreen({ navigation }) {
                 <Text style={styles.tiktokIconTextRed}>{item.likes || 0}</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.tiktokIconButton}>
+              <TouchableOpacity 
+                style={styles.tiktokIconButton}
+                onPress={() => openComments(item)}
+              >
                 <Text style={styles.tiktokIcon}>💬</Text>
                 <Text style={styles.tiktokIconText}>{item.comments || 0}</Text>
               </TouchableOpacity>
@@ -1481,6 +1622,99 @@ function ForYouFeedScreen({ navigation }) {
         })}
         style={{ height: feedHeight }}
       />
+
+      {/* Comments Modal */}
+      <Modal
+        visible={showComments}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeComments}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.commentsModalContainer}
+        >
+          <TouchableOpacity 
+            style={styles.commentsModalOverlay}
+            activeOpacity={1}
+            onPress={closeComments}
+          >
+            <View style={styles.commentsModalContent} onStartShouldSetResponder={() => true}>
+              {/* Header */}
+              <View style={styles.commentsHeader}>
+                <Text style={styles.commentsTitle}>
+                  {comments.length} {comments.length === 1 ? 'Comment' : 'Comments'}
+                </Text>
+                <TouchableOpacity onPress={closeComments}>
+                  <Text style={styles.commentsCloseButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Comments List */}
+              <View style={styles.commentsListContainer}>
+                {loadingComments ? (
+                  <View style={styles.commentsLoading}>
+                    <ActivityIndicator size="large" color="#fff" />
+                  </View>
+                ) : comments.length === 0 ? (
+                  <View style={styles.commentsEmpty}>
+                    <Text style={styles.commentsEmptyEmoji}>💬</Text>
+                    <Text style={styles.commentsEmptyText}>No comments yet</Text>
+                    <Text style={styles.commentsEmptySubtext}>Be the first to comment!</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={comments}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <View style={styles.commentItem}>
+                        <View style={styles.commentAvatar}>
+                          <Text style={styles.commentAvatarText}>
+                            {item.fullName?.charAt(0).toUpperCase() || '?'}
+                          </Text>
+                        </View>
+                        <View style={styles.commentContent}>
+                          <Text style={styles.commentUsername}>@{item.username}</Text>
+                          <Text style={styles.commentText}>{item.text}</Text>
+                          <Text style={styles.commentTime}>
+                            {formatDate(item.createdAt)}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                    style={styles.commentsList}
+                    showsVerticalScrollIndicator={false}
+                  />
+                )}
+              </View>
+
+              {/* Input */}
+              <View style={styles.commentsInputContainer}>
+                <TextInput
+                  style={styles.commentsInput}
+                  placeholder="Add a comment..."
+                  placeholderTextColor="#666"
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  multiline
+                  maxLength={500}
+                />
+                <TouchableOpacity
+                  style={[styles.commentsPostButton, postingComment && styles.commentsPostButtonDisabled]}
+                  onPress={postComment}
+                  disabled={postingComment || !commentText.trim()}
+                >
+                  {postingComment ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.commentsPostButtonText}>Post</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -2003,7 +2237,10 @@ function FriendsOnlyFeedScreen({ navigation }) {
                 <Text style={styles.tiktokIconTextRed}>{item.likes || 0}</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.tiktokIconButton}>
+              <TouchableOpacity 
+                style={styles.tiktokIconButton}
+                onPress={() => openComments(item)}
+              >
                 <Text style={styles.tiktokIcon}>💬</Text>
                 <Text style={styles.tiktokIconText}>{item.comments || 0}</Text>
               </TouchableOpacity>
@@ -2919,11 +3156,23 @@ const styles = StyleSheet.create({
   webCameraContainer: {
     flex: 1,
     position: 'relative',
+    backgroundColor: '#000',
   },
   webCamera: {
     width: '100%',
     height: '100%',
     objectFit: 'cover',
+  },
+  cameraLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  cameraLoadingText: {
+    color: '#fff',
+    fontSize: 16,
+    marginTop: 15,
   },
   noCameraPlaceholder: {
     flex: 1,
@@ -3447,6 +3696,148 @@ const styles = StyleSheet.create({
   logoutButtonText: {
     color: '#fff',
     fontSize: 12,
+    fontWeight: 'bold',
+  },
+  // Comments Modal Styles
+  commentsModalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  commentsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  commentsModalContent: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+  },
+  commentsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  commentsTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  commentsCloseButton: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  commentsListContainer: {
+    minHeight: 200,
+    maxHeight: 400,
+  },
+  commentsList: {
+    flex: 1,
+  },
+  commentsLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  commentsEmpty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  commentsEmptyEmoji: {
+    fontSize: 48,
+    marginBottom: 10,
+  },
+  commentsEmptyText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  commentsEmptySubtext: {
+    color: '#666',
+    fontSize: 14,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+  },
+  commentAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ff4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  commentAvatarText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  commentContent: {
+    flex: 1,
+  },
+  commentUsername: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  commentText: {
+    color: '#fff',
+    fontSize: 14,
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  commentTime: {
+    color: '#666',
+    fontSize: 12,
+  },
+  commentsInputContainer: {
+    flexDirection: 'row',
+    padding: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    alignItems: 'flex-end',
+  },
+  commentsInput: {
+    flex: 1,
+    backgroundColor: '#2a2a2a',
+    color: '#fff',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    marginRight: 10,
+    maxHeight: 100,
+    fontSize: 14,
+  },
+  commentsPostButton: {
+    backgroundColor: '#ff4444',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 60,
+  },
+  commentsPostButtonDisabled: {
+    backgroundColor: '#666',
+  },
+  commentsPostButtonText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });
