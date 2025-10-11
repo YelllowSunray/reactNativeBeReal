@@ -165,14 +165,26 @@ export default function FriendsScreen({ navigation }) {
     if (!phone) return 'Unknown';
     
     // Format like: +31 6 1234 5678
-    // Match country code and number parts
-    const match = phone.match(/^(\+\d{1,3})(\d{1})(\d{4})(\d+)/);
+    // Try to match with 1-2 digit country code first (most common, like +31, +1, +44)
+    let match = phone.match(/^(\+\d{1,2})(\d{1})(\d{4})(\d+)/);
     if (match) {
       return `${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
     }
     
-    // Fallback: just add space after country code
-    return phone.replace(/^(\+\d{1,3})(\d)/, '$1 $2');
+    // Try to match with 3-digit country code (less common, like +234)
+    match = phone.match(/^(\+\d{3})(\d{1})(\d{4})(\d+)/);
+    if (match) {
+      return `${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
+    }
+    
+    // Fallback for shorter numbers: try 1-2 digit country code
+    match = phone.match(/^(\+\d{1,2})(.+)/);
+    if (match) {
+      return `${match[1]} ${match[2]}`;
+    }
+    
+    // Last resort: return as-is
+    return phone;
   };
 
   const renderFriendItem = ({ item }) => (

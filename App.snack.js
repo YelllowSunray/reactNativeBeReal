@@ -175,18 +175,11 @@ function BottomTabNavigator() {
           style={styles.tabButton}
           onPress={() => {
             setCurrentScreen('main');
-            setActiveTab('friends');
+            setActiveTab('yourVideos');
           }}
         >
-          <View style={styles.tabIconContainer}>
-            <Text style={[styles.tabIcon, currentScreen === 'main' && activeTab === 'friends' && styles.activeTabIcon]}>♥</Text>
-            {receivedRequests && receivedRequests.length > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>{receivedRequests.length}</Text>
-              </View>
-            )}
-          </View>
-          <Text style={[styles.tabLabel, currentScreen === 'main' && activeTab === 'friends' && styles.activeTabLabel]}>Friends</Text>
+          <Text style={[styles.tabIcon, currentScreen === 'main' && activeTab === 'yourVideos' && styles.activeTabIcon]}>▶</Text>
+          <Text style={[styles.tabLabel, currentScreen === 'main' && activeTab === 'yourVideos' && styles.activeTabLabel]}>My Videos</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -200,11 +193,18 @@ function BottomTabNavigator() {
           style={styles.tabButton}
           onPress={() => {
             setCurrentScreen('main');
-            setActiveTab('yourVideos');
+            setActiveTab('friends');
           }}
         >
-          <Text style={[styles.tabIcon, currentScreen === 'main' && activeTab === 'yourVideos' && styles.activeTabIcon]}>▶</Text>
-          <Text style={[styles.tabLabel, currentScreen === 'main' && activeTab === 'yourVideos' && styles.activeTabLabel]}>My Videos</Text>
+          <View style={styles.tabIconContainer}>
+            <Text style={[styles.tabIcon, currentScreen === 'main' && activeTab === 'friends' && styles.activeTabIcon]}>♥</Text>
+            {receivedRequests && receivedRequests.length > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>{receivedRequests.length}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={[styles.tabLabel, currentScreen === 'main' && activeTab === 'friends' && styles.activeTabLabel]}>Friends</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -263,13 +263,28 @@ function AppNavigator() {
     );
   }
 
-  // If user is logged in but profile is incomplete, show profile setup
-  if (user && (!user.profileComplete || !user.fullName || !user.username)) {
-    return (
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
-      </Stack.Navigator>
-    );
+  // Check if profile is complete
+  if (user) {
+    const isProfileIncomplete = !user.profileComplete || !user.fullName || !user.username;
+    console.log('🔍 Profile check:', {
+      hasUser: !!user,
+      profileComplete: user.profileComplete,
+      fullName: user.fullName,
+      username: user.username,
+      isProfileIncomplete: isProfileIncomplete
+    });
+    
+    // If user is logged in but profile is incomplete, show profile setup
+    if (isProfileIncomplete) {
+      console.log('⚠️ Profile incomplete, showing CompleteProfile screen');
+      return (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
+        </Stack.Navigator>
+      );
+    }
+    
+    console.log('✅ Profile complete, showing main app');
   }
 
   return user ? <MainAppStack /> : <AuthStack />;
@@ -1282,13 +1297,13 @@ function ForYouFeedScreen({ navigation }) {
           <View style={styles.tiktokOverlay}>
             <View style={styles.tiktokSidebar}>
               <TouchableOpacity style={styles.tiktokIconButton}>
-                <Text style={styles.tiktokIcon}>❤️</Text>
-                <Text style={styles.tiktokIconText}>Like</Text>
+                <Text style={styles.tiktokIconWhite}>♡</Text>
+                <Text style={styles.tiktokIconTextRed}>{item.likes || 0}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.tiktokIconButton}>
                 <Text style={styles.tiktokIcon}>💬</Text>
-                <Text style={styles.tiktokIconText}>Comment</Text>
+                <Text style={styles.tiktokIconText}>{item.comments || 0}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.tiktokIconButton}>
@@ -1925,13 +1940,13 @@ function FriendsOnlyFeedScreen({ navigation }) {
           <View style={styles.tiktokOverlay}>
             <View style={styles.tiktokSidebar}>
               <TouchableOpacity style={styles.tiktokIconButton}>
-                <Text style={styles.tiktokIcon}>❤️</Text>
-                <Text style={styles.tiktokIconText}>Like</Text>
+                <Text style={styles.tiktokIconWhite}>♡</Text>
+                <Text style={styles.tiktokIconTextRed}>{item.likes || 0}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.tiktokIconButton}>
                 <Text style={styles.tiktokIcon}>💬</Text>
-                <Text style={styles.tiktokIconText}>Comment</Text>
+                <Text style={styles.tiktokIconText}>{item.comments || 0}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.tiktokIconButton}>
@@ -2134,14 +2149,26 @@ function ProfileScreen({ navigation }) {
     if (!phone) return 'No phone number';
     
     // Format like: +31 6 1234 5678
-    // Match country code and number parts
-    const match = phone.match(/^(\+\d{1,3})(\d{1})(\d{4})(\d+)/);
+    // Try to match with 1-2 digit country code first (most common, like +31, +1, +44)
+    let match = phone.match(/^(\+\d{1,2})(\d{1})(\d{4})(\d+)/);
     if (match) {
       return `${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
     }
     
-    // Fallback: just add space after country code
-    return phone.replace(/^(\+\d{1,3})(\d)/, '$1 $2');
+    // Try to match with 3-digit country code (less common, like +234)
+    match = phone.match(/^(\+\d{3})(\d{1})(\d{4})(\d+)/);
+    if (match) {
+      return `${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
+    }
+    
+    // Fallback for shorter numbers: try 1-2 digit country code
+    match = phone.match(/^(\+\d{1,2})(.+)/);
+    if (match) {
+      return `${match[1]} ${match[2]}`;
+    }
+    
+    // Last resort: return as-is
+    return phone;
   };
 
   const handleEditProfile = () => {

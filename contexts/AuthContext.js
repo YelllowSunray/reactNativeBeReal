@@ -39,24 +39,37 @@ export const AuthProvider = ({ children }) => {
           
           // Set up auth state listener using modular SDK
           const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            console.log('🔐 Auth state changed:', user ? 'User logged in' : 'User logged out');
             if (user) {
               try {
+                console.log('📖 Fetching user document from Firestore for:', user.uid);
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
                 if (userDoc.exists()) {
-                  setUser({ ...user, ...userDoc.data() });
+                  const userData = userDoc.data();
+                  console.log('✅ User document found with data:', {
+                    phoneNumber: userData.phoneNumber,
+                    username: userData.username,
+                    fullName: userData.fullName,
+                    profileComplete: userData.profileComplete,
+                    hasFriends: userData.friends?.length || 0
+                  });
+                  setUser({ ...user, ...userData });
                 } else {
+                  console.log('📝 User document does not exist, creating new one...');
                   await setDoc(doc(db, 'users', user.uid), {
                     phoneNumber: user.phoneNumber,
                     createdAt: new Date(),
-                    friends: []
+                    friends: [],
+                    profileComplete: false
                   });
-                  setUser({ ...user, friends: [] });
+                  console.log('✅ New user document created');
+                  setUser({ ...user, friends: [], profileComplete: false });
                 }
               } catch (firestoreError) {
                 console.warn('⚠️ Firestore permission error (rules need to be updated):', firestoreError.message);
                 console.warn('📖 Update Firestore rules in Firebase Console to allow authenticated users');
                 // Set user without Firestore data - auth still works!
-                setUser({ ...user, friends: [] });
+                setUser({ ...user, friends: [], profileComplete: false });
               }
             } else {
               setUser(null);
