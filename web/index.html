@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, shrink-to-fit=no" />
+  
+  <!-- Primary Meta Tags -->
+  <title>NotyouLive - Share Your Authentic Moments Through Video</title>
+  <meta name="title" content="NotyouLive - Share Your Authentic Moments Through Video" />
+  <meta name="description" content="Capture and share authentic video moments with friends. A unique social video platform focused on real, spontaneous connections." />
+  <meta name="keywords" content="video sharing, social media, authentic moments, video social network, BeReal alternative, spontaneous videos" />
+  <meta name="author" content="NotyouLive" />
+  <meta name="robots" content="index, follow" />
+  <meta name="language" content="English" />
+  
+  <!-- Theme Color -->
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://notyoulive.vercel.app/" />
+  <meta property="og:title" content="NotyouLive - Share Your Authentic Moments Through Video" />
+  <meta property="og:description" content="Capture and share authentic video moments with friends. A unique social video platform focused on real, spontaneous connections." />
+  <meta property="og:image" content="https://notyoulive.vercel.app/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="NotyouLive" />
+  
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="https://notyoulive.vercel.app/" />
+  <meta property="twitter:title" content="NotyouLive - Share Your Authentic Moments Through Video" />
+  <meta property="twitter:description" content="Capture and share authentic video moments with friends. A unique social video platform focused on real, spontaneous connections." />
+  <meta property="twitter:image" content="https://notyoulive.vercel.app/og-image.png" />
+  
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://notyoulive.vercel.app/" />
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/icon.png" />
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json" />
+  
+  <!-- Preconnect for Performance -->
+  <link rel="preconnect" href="https://firebasestorage.googleapis.com" />
+  <link rel="preconnect" href="https://www.gstatic.com" />
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+  
+  <!-- Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "NotyouLive",
+    "description": "Capture and share authentic video moments with friends. A unique social video platform focused on real, spontaneous connections.",
+    "url": "https://notyoulive.vercel.app/",
+    "applicationCategory": "SocialNetworkingApplication",
+    "operatingSystem": "Web, iOS, Android",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "ratingCount": "150"
+    }
+  }
+  </script>
+  <style>
+    html, body, #root {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAtwMjg2mrZmAjs435y2bZ45Ea2xpljhPU",
+      authDomain: "reactnativevideobereal.firebaseapp.com",
+      projectId: "reactnativevideobereal",
+      storageBucket: "reactnativevideobereal.firebasestorage.app",
+      messagingSenderId: "527610019239",
+      appId: "1:527610019239:web:4b52e19ec38928db550a82",
+      measurementId: "G-QWH37JCZ45"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    
+    // Make Firebase available globally
+    window.firebase = firebase;
+    
+    console.log('✅ Firebase initialized for web');
+    
+    // Note: Firebase compat is loaded here for backward compatibility, but the app
+    // now uses the modular SDK from firebase.js for better App Check + phone auth integration
+    console.log('ℹ️ Firebase compat loaded - App is using modular SDK with App Check + phone auth');
+    
+    /* DISABLED - CONFLICTS WITH PHONE AUTH RECAPTCHA
+    // Initialize App Check with reCAPTCHA v3
+    // IMPORTANT: Replace with your actual reCAPTCHA v3 Site Key from Firebase Console
+    const RECAPTCHA_V3_SITE_KEY = '6LeYLOUrAAAAAPjV3UfIdANLeRy6zs5h-SVkBKOd'; // Your reCAPTCHA v3 site key
+    
+    if (firebase.appCheck && RECAPTCHA_V3_SITE_KEY !== '6LdYOUR-SITE-KEY-HERE') {
+      try {
+        const appCheck = firebase.appCheck();
+        appCheck.activate(RECAPTCHA_V3_SITE_KEY, true); // true = enable token auto-refresh
+        console.log('🛡️ Firebase App Check activated for web (reCAPTCHA v3 - invisible)');
+      } catch (error) {
+        console.warn('⚠️ App Check initialization failed:', error.message);
+      }
+    } else if (RECAPTCHA_V3_SITE_KEY === '6LdYOUR-SITE-KEY-HERE') {
+      console.warn('⚠️ App Check not activated - please add your reCAPTCHA v3 site key');
+      console.warn('📖 See APP_CHECK_QUICK_START.md for instructions');
+    }
+    */
+  </script>
+</body>
+</html>

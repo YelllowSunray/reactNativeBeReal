@@ -1,0 +1,15 @@
+# Only ignore files that shouldn't be uploaded at all
+node_modules
+.expo
+.expo-shared
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+.env.local
+.env.*.local
+
+# Don't ignore source files - Vercel needs them to build!
+# The outputDirectory setting will handle serving only dist/
+

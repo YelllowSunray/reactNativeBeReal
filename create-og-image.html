@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>NotyouLive - OG Image Generator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f0f0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        
+        .og-image {
+            width: 1200px;
+            height: 630px;
+            background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Decorative elements */
+        .og-image::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        
+        .og-image::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        
+        .content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .logo {
+            font-size: 100px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #ffffff 0%, #cccccc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0;
+            letter-spacing: -2px;
+        }
+        
+        .tagline {
+            font-size: 42px;
+            color: #999;
+            margin: 20px 0 0 0;
+            font-weight: 400;
+        }
+        
+        .video-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        
+        .badge {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+        }
+        
+        .instructions {
+            margin-top: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            max-width: 1200px;
+        }
+        
+        .instructions h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .instructions ol {
+            text-align: left;
+            line-height: 1.8;
+            color: #666;
+        }
+        
+        .instructions button {
+            background: #000;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .instructions button:hover {
+            background: #333;
+        }
+    </style>
+</head>
+<body>
+    <div style="text-align: center;">
+        <div class="og-image" id="ogImage">
+            <div class="content">
+                <div class="video-icon">🎥</div>
+                <h1 class="logo">NotyouLive</h1>
+                <p class="tagline">Share Your Authentic Moments</p>
+            </div>
+            <div class="badge">Video Social Network</div>
+        </div>
+        
+        <div class="instructions">
+            <h2>📸 How to Create Your OG Image</h2>
+            <ol>
+                <li><strong>Take a Screenshot:</strong> 
+                    <ul>
+                        <li>Windows: Press <code>Windows + Shift + S</code></li>
+                        <li>Mac: Press <code>Cmd + Shift + 4</code></li>
+                    </ul>
+                </li>
+                <li><strong>Select ONLY the black box above</strong> (the 1200x630px area)</li>
+                <li><strong>Save as:</strong> <code>og-image.png</code></li>
+                <li><strong>Move to:</strong> <code>web/og-image.png</code> in your project</li>
+                <li><strong>Commit and deploy!</strong></li>
+            </ol>
+            
+            <button onclick="downloadImage()">💾 Or Download Directly (Advanced)</button>
+            
+            <p style="color: #999; font-size: 14px; margin-top: 20px;">
+                💡 Tip: You can edit the logo, tagline, and colors above by modifying this HTML file!
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        // Advanced: Convert to downloadable image
+        function downloadImage() {
+            alert('Screenshot method is easier! Press Windows+Shift+S (Windows) or Cmd+Shift+4 (Mac) and select the black box above.');
+        }
+    </script>
+</body>
+</html>
+

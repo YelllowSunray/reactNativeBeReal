@@ -1,0 +1,30 @@
+# NotyouLive - Robots.txt
+# Allow all web crawlers
+
+User-agent: *
+Allow: /
+
+# Disallow private/sensitive areas
+Disallow: /api/
+Disallow: /preview/
+Disallow: /camera/
+
+# Sitemap location
+Sitemap: https://notyoulive.vercel.app/sitemap.xml
+
+# Crawl-delay for nice behavior
+Crawl-delay: 1
+
+# Specific bot instructions
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+

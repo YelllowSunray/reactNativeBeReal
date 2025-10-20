@@ -1,0 +1,24 @@
+# ============================================
+# COPY THIS FILE TO .env IN YOUR PROJECT ROOT
+# ============================================
+#
+# Instructions:
+# 1. Create a new file called ".env" in your project root
+# 2. Copy everything below this line into that file
+# 3. Save the file
+# 4. Restart your dev server (npm start)
+#
+# ============================================
+
+# Firebase Configuration
+FIREBASE_API_KEY=AIzaSyAtwMjg2mrZmAjs435y2bZ45Ea2xpljhPU
+FIREBASE_AUTH_DOMAIN=reactnativevideobereal.firebaseapp.com
+FIREBASE_PROJECT_ID=reactnativevideobereal
+FIREBASE_STORAGE_BUCKET=reactnativevideobereal.firebasestorage.app
+FIREBASE_MESSAGING_SENDER_ID=527610019239
+FIREBASE_APP_ID=1:527610019239:web:4b52e19ec38928db550a82
+FIREBASE_MEASUREMENT_ID=G-QWH37JCZ45
+
+# reCAPTCHA v3 Site Key (for App Check - optional)
+RECAPTCHA_SITE_KEY=6LdqfuUrAAAAACLLXo0szZn2CkGj8zUSMbCyqbbu
+
