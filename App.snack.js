@@ -398,28 +398,36 @@ function CameraScreen({ navigation }) {
       
       setWebcamDevices(videoDevices);
       
-      // 🎯 NEW: Auto-detect front and back cameras for dual camera mode
+      // 🎯 AGGRESSIVE DUAL CAMERA SETUP: Always try dual camera when 2+ devices available
       if (videoDevices.length >= 2) {
         // Try to identify front and back cameras based on labels
-        const frontCam = videoDevices.find(device => 
+        let frontCam = videoDevices.find(device => 
           device.label.toLowerCase().includes('front') || 
           device.label.toLowerCase().includes('user') ||
           device.label.toLowerCase().includes('facetime')
-        ) || videoDevices[0]; // Fallback to first camera
+        );
         
-        const backCam = videoDevices.find(device => 
+        let backCam = videoDevices.find(device => 
           device.label.toLowerCase().includes('back') || 
           device.label.toLowerCase().includes('environment') ||
           device.label.toLowerCase().includes('rear')
-        ) || videoDevices[1]; // Fallback to second camera
+        );
+        
+        // If we can't identify by labels, just use first two cameras
+        if (!frontCam || !backCam) {
+          console.log('⚠️ Could not identify cameras by labels, using first two devices');
+          frontCam = videoDevices[0];
+          backCam = videoDevices[1];
+        }
         
         setFrontCameraId(frontCam.deviceId);
         setBackCameraId(backCam.deviceId);
         setIsDualCameraMode(true);
         
-        console.log('🎯 Dual camera setup:');
+        console.log('🎯 DUAL CAMERA FORCED ON:');
         console.log('📱 Front camera:', frontCam.label || frontCam.deviceId);
         console.log('📷 Back camera:', backCam.label || backCam.deviceId);
+        console.log('✅ Both cameras will be shown simultaneously');
       } else if (videoDevices.length === 1) {
         // Only one camera available - use single camera mode
         setFrontCameraId(videoDevices[0].deviceId);
@@ -594,8 +602,8 @@ function CameraScreen({ navigation }) {
       backRecordedChunksRef.current = [];
 
       if (Platform.OS === 'web') {
-        // 🎯 NEW: Dual camera recording for web!
-        if (isDualCameraMode && frontCameraId && backCameraId) {
+        // 🎯 ALWAYS TRY DUAL CAMERA: Record from both when available
+        if (frontCameraId && backCameraId && webcamDevices.length >= 2) {
           console.log('🎬 Starting DUAL CAMERA recording...');
           
           // Get streams from both cameras with better error checking
@@ -873,7 +881,7 @@ function CameraScreen({ navigation }) {
 
       if (Platform.OS === 'web') {
         // Stop web recording - handle both dual and single camera
-        if (isDualCameraMode && frontMediaRecorderRef.current && backMediaRecorderRef.current) {
+        if (frontMediaRecorderRef.current && backMediaRecorderRef.current && webcamDevices.length >= 2) {
           console.log('🛑 Stopping DUAL camera recording...');
           
           // Stop both recorders
@@ -979,8 +987,8 @@ function CameraScreen({ navigation }) {
         </TouchableOpacity>
 
         <View style={styles.cameraContainer}>
-          {/* 🎯 NEW: Dual Camera UI for Web */}
-          {isDualCameraMode && frontCameraId && backCameraId && webcamDevices.length >= 2 ? (
+          {/* 🎯 ALWAYS TRY DUAL CAMERA: Show both cameras when available */}
+          {webcamDevices.length >= 2 && frontCameraId && backCameraId ? (
             <View style={styles.dualCameraContainer}>
               {/* Main camera (back) - full screen */}
               <View style={styles.mainCameraContainer}>
@@ -1124,22 +1132,13 @@ function CameraScreen({ navigation }) {
           </View>
           */}
 
-          {/* Camera mode toggle and record button */}
+          {/* Simple record button - always dual camera when available */}
           <View style={styles.cameraControlsRow}>
-            {/* Dual camera toggle */}
+            {/* Camera info */}
             {webcamDevices.length >= 2 && (
-              <TouchableOpacity
-                style={[styles.dualCameraToggle, isDualCameraMode && styles.dualCameraToggleActive]}
-                onPress={() => setIsDualCameraMode(!isDualCameraMode)}
-                disabled={isRecording}
-              >
-                <Text style={styles.dualCameraToggleIcon}>
-                  {isDualCameraMode ? '📱📷' : '📷'}
-                </Text>
-                <Text style={styles.dualCameraToggleText}>
-                  {isDualCameraMode ? 'Dual' : 'Single'}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.cameraInfo}>
+                <Text style={styles.cameraInfoText}>📱📷 Dual Camera</Text>
+              </View>
             )}
 
             {/* Record button */}
@@ -1154,7 +1153,7 @@ function CameraScreen({ navigation }) {
             </TouchableOpacity>
 
             {/* Spacer for balance */}
-            {webcamDevices.length >= 2 && <View style={styles.dualCameraToggle} />}
+            {webcamDevices.length >= 2 && <View style={styles.cameraInfo} />}
           </View>
         </View>
       </SafeAreaView>
@@ -4439,6 +4438,19 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   dualCameraToggleText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  cameraInfo: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 25,
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  cameraInfoText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
