@@ -359,12 +359,23 @@ function CameraScreen({ navigation }) {
   const backMediaRecorderRef = useRef(null);
   const frontRecordedChunksRef = useRef([]);
   const backRecordedChunksRef = useRef([]);
+  const manualStreamsRef = useRef({ front: null, back: null }); // Store manual streams for cleanup
 
   useEffect(() => {
     getPermissions();
     if (Platform.OS === 'web') {
       getWebcamDevices();
     }
+    
+    // Cleanup function to stop any manual streams when component unmounts
+    return () => {
+      if (manualStreamsRef.current.front) {
+        manualStreamsRef.current.front.getTracks().forEach(track => track.stop());
+      }
+      if (manualStreamsRef.current.back) {
+        manualStreamsRef.current.back.getTracks().forEach(track => track.stop());
+      }
+    };
   }, []);
 
   const getWebcamDevices = async () => {
@@ -587,11 +598,15 @@ function CameraScreen({ navigation }) {
         if (isDualCameraMode && frontCameraId && backCameraId) {
           console.log('🎬 Starting DUAL CAMERA recording...');
           
-          // Get streams from both cameras
+          // Get streams from both cameras with better error checking
           const frontStream = frontWebcamRef.current?.video?.srcObject;
           const backStream = backWebcamRef.current?.video?.srcObject;
           
+          console.log('📱 Front stream available:', !!frontStream);
+          console.log('📷 Back stream available:', !!backStream);
+          
           if (frontStream && backStream) {
+            console.log('✅ Both streams available, starting dual recording');
             const options = {
               mimeType: 'video/webm;codecs=vp9',
               videoBitsPerSecond: 1000000  // 1 Mbps per camera
@@ -668,7 +683,105 @@ function CameraScreen({ navigation }) {
             
             console.log('✅ Dual camera recording started!');
           } else {
-            throw new Error('Could not access both camera streams');
+            // 🔧 FALLBACK: Try to create streams manually if webcam refs don't have them
+            console.log('⚠️ Streams not available from webcam refs, creating manually...');
+            
+            try {
+              const frontStreamManual = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: frontCameraId },
+                audio: false
+              });
+              
+              const backStreamManual = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: backCameraId },
+                audio: true // Only back camera gets audio to avoid conflicts
+              });
+              
+              // Store references for cleanup
+              manualStreamsRef.current.front = frontStreamManual;
+              manualStreamsRef.current.back = backStreamManual;
+              
+              console.log('✅ Manual streams created successfully');
+              
+              const options = {
+                mimeType: 'video/webm;codecs=vp9',
+                videoBitsPerSecond: 1000000
+              };
+              
+              if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                options.mimeType = 'video/webm;codecs=vp8';
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                  options.mimeType = 'video/webm';
+                }
+              }
+              
+              // Create recorders with manual streams
+              frontMediaRecorderRef.current = new MediaRecorder(frontStreamManual, options);
+              backMediaRecorderRef.current = new MediaRecorder(backStreamManual, options);
+
+              // Front camera recorder
+              frontMediaRecorderRef.current.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                  frontRecordedChunksRef.current.push(event.data);
+                }
+              };
+
+              // Back camera recorder
+              backMediaRecorderRef.current.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                  backRecordedChunksRef.current.push(event.data);
+                }
+              };
+
+              // Handle when both recordings stop
+              let stoppedCount = 0;
+              const handleRecordingStop = () => {
+                stoppedCount++;
+                if (stoppedCount === 2) {
+                  console.log('🎬 Both manual recordings stopped, processing videos...');
+                  
+                  if (frontRecordedChunksRef.current.length > 0 && backRecordedChunksRef.current.length > 0) {
+                    const frontBlob = new Blob(frontRecordedChunksRef.current, { type: 'video/webm' });
+                    const backBlob = new Blob(backRecordedChunksRef.current, { type: 'video/webm' });
+                    const frontVideoUrl = URL.createObjectURL(frontBlob);
+                    const backVideoUrl = URL.createObjectURL(backBlob);
+                    
+                    console.log('✅ Dual videos created from manual streams:');
+                    console.log('📱 Front video size:', frontBlob.size, 'bytes');
+                    console.log('📷 Back video size:', backBlob.size, 'bytes');
+                    
+                    // Clean up manual streams
+                    frontStreamManual.getTracks().forEach(track => track.stop());
+                    backStreamManual.getTracks().forEach(track => track.stop());
+                    
+                    setIsRecording(false);
+                    
+                    navigation.navigate('Preview', {
+                      frontVideo: frontVideoUrl,
+                      backVideo: backVideoUrl,
+                      duration: recordingTime
+                    });
+                  } else {
+                    console.error('❌ Missing video data from manual recording');
+                    setIsRecording(false);
+                    Alert.alert('Error', 'Failed to record from both cameras. Please try again.');
+                  }
+                }
+              };
+
+              frontMediaRecorderRef.current.onstop = handleRecordingStop;
+              backMediaRecorderRef.current.onstop = handleRecordingStop;
+
+              // Start both recorders
+              frontMediaRecorderRef.current.start();
+              backMediaRecorderRef.current.start();
+              
+              console.log('✅ Dual camera recording started with manual streams!');
+              
+            } catch (manualError) {
+              console.error('❌ Failed to create manual streams:', manualError);
+              throw new Error('Could not access camera streams for dual recording');
+            }
           }
         } else {
           // Single camera fallback
@@ -770,6 +883,19 @@ function CameraScreen({ navigation }) {
           if (backMediaRecorderRef.current.state === 'recording') {
             backMediaRecorderRef.current.stop();
           }
+          
+          // Clean up manual streams if they exist
+          if (manualStreamsRef.current.front) {
+            console.log('🧹 Cleaning up manual front stream');
+            manualStreamsRef.current.front.getTracks().forEach(track => track.stop());
+            manualStreamsRef.current.front = null;
+          }
+          if (manualStreamsRef.current.back) {
+            console.log('🧹 Cleaning up manual back stream');
+            manualStreamsRef.current.back.getTracks().forEach(track => track.stop());
+            manualStreamsRef.current.back = null;
+          }
+          
           // The onstop handlers will navigate to preview when both are done
         } else if (frontMediaRecorderRef.current) {
           console.log('🛑 Stopping single camera recording...');
