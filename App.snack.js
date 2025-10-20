@@ -404,18 +404,23 @@ function CameraScreen({ navigation }) {
         
         setFrontCameraId(frontCam.deviceId);
         setBackCameraId(backCam.deviceId);
+        setIsDualCameraMode(true);
         
         console.log('🎯 Dual camera setup:');
         console.log('📱 Front camera:', frontCam.label || frontCam.deviceId);
         console.log('📷 Back camera:', backCam.label || backCam.deviceId);
       } else if (videoDevices.length === 1) {
-        // Only one camera available - disable dual camera mode
+        // Only one camera available - use single camera mode
         setFrontCameraId(videoDevices[0].deviceId);
         setBackCameraId(null);
         setIsDualCameraMode(false);
-        console.log('⚠️ Only one camera found - dual camera mode disabled');
+        console.log('⚠️ Only one camera found - using single camera mode');
+        console.log('📹 Camera:', videoDevices[0].label || videoDevices[0].deviceId);
       } else {
         console.warn('⚠️ No video devices found');
+        setFrontCameraId(null);
+        setBackCameraId(null);
+        setIsDualCameraMode(false);
       }
       
       // Stop the temporary stream - Webcam components will create their own
@@ -832,7 +837,11 @@ function CameraScreen({ navigation }) {
 
   // Web camera mode
   if (hasPermission === 'web-demo') {
-    console.log('Rendering web camera mode, selectedDeviceId:', selectedDeviceId);
+    console.log('🎬 Rendering web camera mode');
+    console.log('📹 Webcam devices:', webcamDevices.length);
+    console.log('📱 Front camera ID:', frontCameraId);
+    console.log('📷 Back camera ID:', backCameraId);
+    console.log('🔄 Dual camera mode:', isDualCameraMode);
     return (
       <SafeAreaView style={styles.container}>
         {/* Back button - top left */}
@@ -845,7 +854,7 @@ function CameraScreen({ navigation }) {
 
         <View style={styles.cameraContainer}>
           {/* 🎯 NEW: Dual Camera UI for Web */}
-          {isDualCameraMode && frontCameraId && backCameraId ? (
+          {isDualCameraMode && frontCameraId && backCameraId && webcamDevices.length >= 2 ? (
             <View style={styles.dualCameraContainer}>
               {/* Main camera (back) - full screen */}
               <View style={styles.mainCameraContainer}>
@@ -915,7 +924,7 @@ function CameraScreen({ navigation }) {
           ) : (
             /* Single camera fallback */
             <View style={styles.webCameraContainer}>
-              {!frontCameraId ? (
+              {webcamDevices.length === 0 ? (
                 <View style={styles.cameraLoading}>
                   <ActivityIndicator size="large" color="#fff" />
                   <Text style={styles.cameraLoadingText}>Initializing camera...</Text>
@@ -924,18 +933,25 @@ function CameraScreen({ navigation }) {
                 <Webcam
                   ref={frontWebcamRef}
                   audio={true}
-                  videoConstraints={{
-                    deviceId: frontCameraId,
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
-                  }}
+                  videoConstraints={
+                    frontCameraId || webcamDevices[0]?.deviceId 
+                      ? {
+                          deviceId: frontCameraId || webcamDevices[0]?.deviceId,
+                          width: { ideal: 640 },
+                          height: { ideal: 480 }
+                        }
+                      : {
+                          width: { ideal: 640 },
+                          height: { ideal: 480 }
+                        }
+                  }
                   style={styles.webCamera}
                   onUserMedia={(stream) => {
                     console.log('📹 Single camera stream active:', stream);
                   }}
                   onUserMediaError={(error) => {
                     console.error('❌ Camera error:', error);
-                    Alert.alert('Camera Error', 'Failed to access camera. Please check permissions.');
+                    console.log('🔄 Trying fallback camera...');
                   }}
                 />
               )}
@@ -1004,7 +1020,7 @@ function CameraScreen({ navigation }) {
             <TouchableOpacity
               style={[styles.recordButtonCenter, isRecording && styles.recordingButton]}
               onPress={isRecording ? stopRecording : startRecording}
-              disabled={!frontCameraId}
+              disabled={webcamDevices.length === 0}
             >
               <Text style={styles.recordButtonText}>
                 {isRecording ? 'Stop' : 'Record'}
